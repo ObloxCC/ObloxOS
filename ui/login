@@ -1,0 +1,150 @@
+os.pullEvent = os.pullEventRaw
+os.loadAPI(".DS_Data/APIS/windowAPI")
+os.loadAPI(".DS_Data/APIS/SHA256")
+x, y = term.getSize()
+function cprint(text, yp)
+cx = math.ceil((x/2)-(string.len(text)/2))
+term.setCursorPos(cx, yp)
+print(text)
+end
+function cwrite( text, yp)
+cx = math.ceil((x/2)-(string.len(text)/2))
+term.setCursorPos(cx, yp)
+write(text)
+end
+
+local osVer = "Alpha 0.0.7"
+local osEdition = "IN-DEV"
+local x,y = term.getSize()
+local bk1 = ".os/backgrounds/bk1"
+local bk2 = ".os/backgrounds/bk2"
+local bk = bk1
+local background = paintutils.loadImage(bk)
+local didUsername = false
+local didPassword = false
+local didLogin = false
+local loadBKC = colors.blue
+local loginBKC = colors.blue
+local ALonPage = desktop
+local stage = 1
+local continue = false
+local brunning = true
+
+function login()
+  term.setBackgroundColor(loginBKC)
+  term.clear()
+  term.setCursorPos(1,1)
+  term.setBackgroundColor(8)
+  term.clearLine()
+  term.setTextColor(1)
+  print("Oblox OS",osVer,"",osEdition,"Editon")
+  term.setBackgroundColor(loginBKC)
+  term.setTextColor(colors.white)
+  term.setCursorPos(15,8.5)
+  windowAPI.drawWindow(18, 33, 7, 13, 1, 512, 128, "Login")
+  term.setBackgroundColor(1)
+  term.setCursorPos(15,10.5)
+  cprint("Username",9.5)
+  term.setBackgroundColor(1)
+  paintutils.drawLine(19, 10.5, 32, 10.5, 256)
+  term.setCursorPos(15,11.5)
+  paintutils.drawLine(19, 12.5, 32, 12.5, 256)
+  term.setBackgroundColor(1)
+  cprint("Password",11.5)
+ 
+  -- Login Create Password And Username And Login --
+  while didUsername == false do
+  if fs.exists(".os/.logFile/username") and fs.exists(".os/.logFile/password") then
+  	term.setCursorPos(15,10.5)
+  	cprint("Username",9.5)
+  	term.setBackgroundColor(256)
+   	term.setCursorPos(19,10.5)
+  	username = read()
+   term.setCursorPos(15,11.5)
+   term.setBackgroundColor(1)
+   cprint("Password",11.5)
+    term.setBackgroundColor(256)
+   	term.setCursorPos(19,12.5)
+   password = read("*")
+   fs.isDir(".os/.logFile")
+   fileU = fs.open(".os/.logFile/username","r")
+   UfileU = fileU.readAll()
+   fileU.close()
+   fileP = fs.open(".os/.logFile/password","r")
+   PfileP = fileP.readAll()
+   fileP.close()
+   if password ~= nil then
+  	hashE = SHA256.sha256(password)
+   else
+  	hashE = ""
+   end
+   if username == UfileU and hashE == PfileP then
+   		local didUsername = true
+   		local continue = true
+   		local stage = 3
+   		shell.run("ui/main")
+   else
+     term.setBackgroundColor(loginBKC)
+  term.clear()
+  term.setCursorPos(1,1)
+  term.setBackgroundColor(8)
+  term.clearLine()
+  term.setTextColor(1)
+  print("Oblox OS",osVer,"",osEdition,"Editon")
+   windowAPI.drawWindow(10, 41, 7, 13, 1, 512, 128, "Error")
+   term.setCursorPos(11,9)
+   term.setBackgroundColor(1)
+   print("Wrong Username Or Password")
+   term.setCursorPos(34,12)
+   term.setBackgroundColor(colors.yellow)
+   print("[BACK]")
+   back = "f"
+   while back == "f" do
+   event,button,x,y = os.pullEvent("mouse_click")
+   if event == "mouse_click" and x >= 34 and x <= 39 and y == 12 and button == 1 then
+   	back = "t"
+	login()
+   end
+   end
+   end
+  else
+   windowAPI.drawWindow(18, 33, 7, 13, 1, 512, 128, "Login")
+  term.setBackgroundColor(1)
+  term.setCursorPos(15,10.5)
+  cprint("New Username",9.5)
+  term.setCursorPos(11,11.5)
+  cprint("New Password",11.5)
+  term.setCursorPos(11,10.5)
+  cprint("New Username",9.5)
+  term.setBackgroundColor(1)
+  paintutils.drawLine(19, 10.5, 32, 10.5, 256)
+  term.setCursorPos(15,11.5)
+  paintutils.drawLine(19, 12.5, 32, 12.5, 256)
+  term.setCursorPos(19,10.5)
+  nu = read()
+  term.setCursorPos(11,11.5)
+  term.setBackgroundColor(1)
+  cprint("New Password",11.5)
+  fs.makeDir(".os/.logFile")
+  term.setBackgroundColor(256)
+  term.setCursorPos(19,12.5)
+  np = read("*")
+  if np ~= nil then
+  	hash = SHA256.sha256(np)
+  else
+  	hash = ""
+  end
+  nuf = fs.open(".os/.logFile/username","w")
+  nuf.write(nu)
+  nuf.close()
+  npf = fs.open(".os/.logFile/password","w")
+  npf.write(hash)
+  npf.close()
+  sleep(1)
+  login()
+  end
+ 
+end
+end
+
+login()

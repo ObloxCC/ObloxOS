@@ -1,0 +1,346 @@
+-- MAIN CODE --
+os.loadAPI(".DS_Data/APIS/configAPI")
+os.loadAPI(".DS_Data/APIS/vectors")
+os.loadAPI(".DS_Data/APIS/windowAPI")
+--os.loadAPI(".DS_Data/APIS/programAPI")
+local w,h = term.getSize()
+
+local confPath = "/.DS_Data/Config"
+
+-- Config Check --
+configFiles = {"paths", "programs", "settings"}
+for k,v in pairs(configFiles) do
+	if not fs.exists(confPath.."/"..v) then
+		configAPI.makeConfig(confPath.."/"..v)
+	end
+end
+
+--programAPI.addToTable(2,3,11,21,"2",2,43,9)
+
+-- VARIABLES
+wisdrag = nil
+msX = 0
+msY = 0
+programWindowX = 1
+programWindowY = 2
+programWindowCreated = false
+programWindow = false
+settingWindow = false
+running = true
+slc = 0
+_settings = configAPI.loadConfig(confPath.."/settings")
+tBarC = configAPI.getValue(_settings,1,true)
+tBarT = configAPI.getValue(_settings,2,true)
+
+-- Tables
+menuOpts = {
+	[""] = {txt="            "; backC = 8192; textC = 1; x=1; xx=12; y=18; cmd = function() end};
+	["1"] = {txt="   Logout   "; backC = 8192; textC = 1; x=1; xx=12; y=17; cmd = function() shell.run("ui/login") end};
+	["2"] = {txt="  Shutdown  "; backC = 8192; textC = 1; x=1; xx=12; y=16; cmd = function() os.shutdown() end};
+	["3"] = {txt="   Reboot   "; backC = 8192; textC = 1; x=1; xx=12; y=15; cmd = function() os.reboot() end};
+	["4"] = {txt="  Settings  "; backC = 8192; textC = 1; x=1; xx=12; y=14; cmd = function() openWindow("Settings") end};
+	["5"] = {txt="  Programs  "; backC = 8192; textC = 1; x=1; xx=12; y=13; cmd = function() openWindow("Programs") end};
+	["6"] = {txt="            "; backC = 8192; textC = 1; x=1; xx=12; y=12; cmd = function() end};
+}
+
+windows = {
+	["1"] = {lbl="Programs"; x=2; xx=16; y=3; yy=16; length=14; height=13; color1=1; color2=512; textColor=128; enabled=false; dragging = false; id=1};
+	["2"] = {lbl="Task Manager"; x=20; xx=42; y=3; yy=16; length=18; height=13; color1=1; color2=512; textColor=128; enabled=false; dragging = false; id=2};
+	["3"] = {lbl="Settings"; x=2; xx=30; y=3; yy=16; length=28; height=13; color1=256; color2=512; textColor=128; enabled=false; dragging = false; id=3};
+}
+
+desktopIcons = {
+	["1"] = {lbl="Programs"; icon="icons/programs"; x=2; xx=6; y=2; yy=6; scale=4; dragging=false; action=function() openWindow("Programs") end};
+	["2"] = {lbl="Settings"; icon="icons/settings"; x=2; xx=6; y=8; yy=12; scale=4; dragging=false; action=function() openWindow("Settings") end};
+}
+
+-- Functions
+
+function drawIcon()
+	for k,v in pairs(desktopIcons) do
+		paintutils.drawImage(paintutils.loadImage(v.icon),v.x,v.y)
+		term.setTextColor(colors.black)
+		term.setCursorPos(v.x,v.y)
+		print("+")
+		term.setTextColor(colors.white)
+		term.setCursorPos(v.x,v.yy+1)
+		term.setBackgroundColor(2048)
+		print(v.lbl)
+	end
+end
+
+function dragIcon( mouseX, mouseY, newX, newY )
+	for k,v in pairs(desktopIcons) do
+		if k ~= nil then
+			if wisdrag == nil or wisdrag == v.lbl then
+				if mouseX >= v.x and mouseX <= v.x+1 and mouseY >= v.y and mouseY <= v.y+1 then
+					v.dragging = true
+				end
+				if v.dragging == true then
+					v.xx = newX+v.scale
+					v.yy = newY+v.scale
+					v.x = newX
+					v.y = newY
+					refreshScr()
+					wisdrag = v.lbl
+				end
+			end
+		end
+	end
+	return false
+end
+
+function iconDragDone( mouseX, mouseY )
+	for k,v in pairs(desktopIcons) do
+		if k ~= nil then
+			widrag = nil
+			v.dragging = false
+		end
+	end
+	return false
+end
+
+function iconClick( mouseX, mouseY, event )
+	for k,v in pairs(desktopIcons) do
+		if event[1] == "mouse_click" then
+			if event[2] == 1 then
+				if mouseX >= v.x+2 and mouseX <= v.xx and mouseY >= v.y and mouseY <= v.yy then
+					if v.dragging == false then
+						v.action()
+						refreshScr()
+					end
+				end
+			end
+		end
+	end
+end
+
+-------------
+function drawMenu()
+	for k,v in pairs(menuOpts) do
+		term.setBackgroundColor(v.backC)
+		term.setTextColor(v.textC)
+		term.setCursorPos(v.x,v.y)
+		print(v.txt)
+	end
+end
+
+function drawWindow()
+	for k,v in pairs(windows) do
+		if v.enabled == true then
+			windowAPI.drawWindow(v.x, v.xx, v.y, v.yy, v.color1, v.color2, v.textColor, v.lbl)
+			if v.lbl=="Programs" and v.id==1 then
+				local programList = fs.list("programs/")
+				local cPos = v.y+1
+				local length = 0
+				for _, file in ipairs(programList) do
+					length = length+1
+				end
+				term.setCursorPos(v.x+1,v.y+1)
+				term.setBackgroundColor(1)
+				for _, file in ipairs(programList) do
+					cPos = cPos+1
+					term.setCursorPos(v.x+1,cPos)
+					print(file)
+				end	
+			end
+			if v.lbl=="Task Manager" and v.id==2 then
+				term.setBackgroundColor(1)
+				term.setCursorPos(v.x+1,v.y+1)
+				print("Running:")
+				local gPos = v.y+1
+				for k,g in pairs(windows) do
+					if g.enabled == true then
+						gPos = gPos+1
+						term.setCursorPos(v.x+1,gPos)
+						print(g.lbl)
+					end
+				end
+			end
+			if v.lbl=="Settings" and v.id==3 then
+				term.setBackgroundColor(1)
+				term.setCursorPos(v.x+1,v.y+2)
+				term.setBackgroundColor(256)
+				print(" Task bar Color:   ("..tBarC..")")
+				paintutils.drawPixel(v.x+18, v.y+2, tBarC)
+				term.setBackgroundColor(256)
+				term.setCursorPos(v.x+1,v.y+3)
+				print(" Text Color:   ("..tBarT..")")
+				paintutils.drawPixel(v.x+14, v.y+3, tBarT)
+				term.setBackgroundColor(256)
+				term.setCursorPos(v.x+1,v.y+4)
+				print(" Background Color:   (2048)")
+				paintutils.drawPixel(v.x+20, v.y+4, 2048)
+				term.setBackgroundColor(256)
+			end
+		end
+	end
+end
+
+function dragWindow( mouseX, mouseY, newX, newY )
+	for k,v in pairs(windows) do
+		if k ~= nil then
+			if wisdrag == nil or wisdrag == v.lbl then
+				if mouseX >= v.x and mouseX <= v.xx and mouseY == v.y then
+					if v.enabled == true then
+						v.dragging = true
+					end
+				end
+				if v.dragging == true then
+					if v.enabled == true then
+						v.xx = newX+v.length
+						v.yy = newY+v.height
+						v.x = newX
+						v.y = newY
+						refreshScr()
+						wisdrag = v.lbl
+					end
+				end
+			end
+		end
+	end
+	return false
+end
+
+function windowDragDone( mouseX, mouseY )
+	for k,v in pairs(windows) do
+		if k ~= nil then
+			v.dragging = false
+			wisdrag = nil
+			if mouseX == v.xx and mouseY == v.y then
+				v.enabled = false
+			end
+		end
+	end
+	return false
+end
+
+function openWindow( name )
+	for k,v in pairs(windows) do
+		if k ~= nil then
+			if v.lbl == name then
+				if v.enabled ~= true then
+					v.enabled = true
+				end
+			end
+		end
+	end
+	return false
+end
+
+-----------------
+
+function drawTaskBar()
+	term.setBackgroundColor(tBarC)
+	term.setTextColor(tBarT)
+	term.setCursorPos(1,19)
+	term.clearLine()
+	term.setCursorPos(1,19)
+	term.setBackgroundColor(colors.green)
+	write(" START ")
+	term.setBackgroundColor(colors.blue)
+	term.setCursorPos(1,1)
+end
+
+
+function settings()
+		settingWindow = true
+		windowAPI.drawWindow(1, w, 2, h, 256, 512, 128, "Settings") 
+		term.setTextColor(tBarT)
+		term.setCursorPos(1,4)
+		term.setBackgroundColor(256)
+		print(" Task bar Color:   ("..tBarC..")")
+		paintutils.drawPixel(18, 4, tBarC)
+		term.setBackgroundColor(256)
+		term.setCursorPos(1,5)
+		print(" Text Color:   ("..tBarT..")")
+		paintutils.drawPixel(14, 5, tBarT)
+		term.setBackgroundColor(256)
+		term.setCursorPos(1,6)
+		print(" Background Color:   (2048)")
+		paintutils.drawPixel(20, 6, 2048)
+		term.setBackgroundColor(256)
+		term.setCursorPos(1,7)
+end
+
+function refreshScr()
+	term.setBackgroundColor(colors.blue)
+	term.clear()
+	drawIcon()
+	drawTaskBar()
+	drawWindow()
+end
+
+function menuClick( mouseX, mouseY, event )
+	for k,v in pairs(menuOpts) do
+		if event[1] == "mouse_click" then
+			if event[2] == 1 then
+				if mouseX >= v.x and mouseX <= v.xx and mouseY == v.y then
+					v.cmd() else slc = 0
+					refreshScr()
+				end
+			end
+		end
+	end
+end
+
+function rightClick( mouseX, mouseY )
+	refreshScr()
+	paintutils.drawFilledBox(mouseX, mouseY, mouseX+13, mouseY+4, 256)
+	term.setCursorPos(mouseX+1,mouseY+1)
+	print("Task Manager")
+	term.setCursorPos(mouseX+1,mouseY+2)
+	print(" Background ")
+	term.setCursorPos(mouseX+1,mouseY+3)
+	print("   New  >   ")
+	slc = 7
+	msX = mouseX
+	msY = mouseY
+end
+
+-- MAIN
+refreshScr()
+drawIcon()
+drawWindow()
+
+while running do
+	event = {os.pullEventRaw()}
+	if event[1] == "mouse_click" then
+		if event[2] == 1 then
+			if slc == 0 then
+				refreshScr()
+				if event[3] >= 1 and event[3] <= #" START " and event[4] == 19 then
+					slc = 1
+					drawMenu()
+				end
+			elseif slc == 7 then
+				slc = 0
+				if event[3] >= msX and event[3] <= msX+13 and event[4] == msY+1 then
+					openWindow("Task Manager")
+				end
+				if event[3] >= msX and event[3] <= msX+13 and event[4] == msY+2 then
+					openWindow("Settings")
+				end
+				refreshScr()
+			elseif slc == 1 then
+				drawMenu()
+				menuClick(event[3], event[4], event)
+			end
+		elseif event[2] == 2 then
+			rightClick( event[3], event[4] )
+		end
+	elseif event[1] == "mouse_drag" then
+		if event[2] == 1 then
+			dragWindow(event[3],event[4], event[3], event[4])
+			dragIcon(event[3],event[4], event[3], event[4])
+		end
+	else
+		windowDragDone( event[3],event[4] )
+		iconDragDone( event[3],event[4] )
+	end
+	sleep(.1)
+	iconClick( event[3],event[4], event )
+end
+
+
+--OLD
